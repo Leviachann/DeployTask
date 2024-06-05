@@ -1,4 +1,4 @@
-name: ASP.NET MVC CI
+name: ASP.NET MVC CI/CD
 
 on:
   push:
@@ -33,3 +33,17 @@ jobs:
 
       - name: Run tests
         run: dotnet test --no-build --verbosity normal
+
+      - name: Publish to AWS Elastic Beanstalk
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: us-west-1  # Replace with your AWS region
+          APP_NAME: DeployTest  # Replace with your Elastic Beanstalk application name
+          ENV_NAME: DeployTak-env  # Replace with your Elastic Beanstalk environment name
+        run: |
+          dotnet publish -c Release -o ./publish
+          zip -r publish.zip ./publish
+          aws s3 cp publish.zip s3://$APP_NAME/publish.zip
+          aws elasticbeanstalk create-application-version --application-name $APP_NAME --version-label v${{ github.run_number }} --source-bundle S3Bucket=$APP_NAME,S3Key=publish.zip
+          aws elasticbeanstalk update-environment --environment-name $ENV_NAME --version-label v${{ github.run_number }}
